@@ -1,0 +1,120 @@
+#***************************************************************************
+#*                                                                         *
+#*   Copyright (c) 2013                                                    *  
+#*   Jonathan Wiedemann <j.wiedemann@wood3dservices.fr>                    *  
+#*                                                                         *
+#*   This program is free software; you can redistribute it and/or modify  *
+#*   it under the terms of the GNU Lesser General Public License (LGPL)    *
+#*   as published by the Free Software Foundation; either version 2 of     *
+#*   the License, or (at your option) any later version.                   *
+#*   for detail see the LICENCE text file.                                 *
+#*                                                                         *
+#*   This program is distributed in the hope that it will be useful,       *
+#*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+#*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+#*   GNU Library General Public License for more details.                  *
+#*                                                                         *
+#*   You should have received a copy of the GNU Library General Public     *
+#*   License along with this program; if not, write to the Free Software   *
+#*   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
+#*   USA                                                                   *
+#*                                                                         *
+#***************************************************************************
+
+import FreeCAD, Part, Draft, Arch, math, ArchComponent, DraftVecUtils, ArchCommands
+
+class MurOssaBois:
+    '''retourne un mur ossature bois'''
+    def __init__(self,obj, longueurMOB = 2600.00, entreaxeMontants = 400.00, epaisseurMOB = 120.00, hauteurMOB = 2700.00):
+        obj.addProperty("App::PropertyLength","longueurMOB","MOB","Longueur du mur").longueurMOB = longueurMOB
+        obj.addProperty("App::PropertyLength","entreaxeMontants","MOB","Entraxe des montants.").entreaxeMontants = entreaxeMontants
+        obj.addProperty("App::PropertyLength","epaisseurMOB","MOB","Hauteur des montants").epaisseurMOB = epaisseurMOB
+        obj.addProperty("App::PropertyLength","hauteurMOB","MOB","Hauteur du mur").hauteurMOB = hauteurMOB
+        #obj.addProperty("App::PropertyLinkList","composantsMOB","MOB","Composants").composantsMOB = []
+        obj.Proxy = self
+        
+    def onChanged(self, fp, prop):
+		"Do something when a property has changed"
+		FreeCAD.Console.PrintMessage("Change property: " + str(prop) + "\n")
+
+    def execute(self, fp):
+        if FreeCAD.ActiveDocument.getObject("LisseBasse"):
+			
+        	FreeCAD.ActiveDocument.removeObject("LisseBasse")
+        	FreeCAD.ActiveDocument.removeObject("LisseHaute")
+        	FreeCAD.ActiveDocument.removeObject("MontantDepart")
+        	FreeCAD.ActiveDocument.removeObject("MontantArrive")
+        	FreeCAD.ActiveDocument.removeObject("MontantIntermediaire")
+        	FreeCAD.ActiveDocument.removeObject("Array")
+        	FreeCAD.ActiveDocument.removeObject("Array001")
+        baseMontant = 45.00
+        hauteurMontant = fp.epaisseurMOB
+        longueurMontant = fp.hauteurMOB - baseMontant
+        nbMontant1erPanneau = int(math.ceil(1200.0 / fp.entreaxeMontants))
+        nbMontantPanneauxSuivant = int(math.ceil((fp.longueurMOB - 1200.00) / fp.entreaxeMontants ))
+        lisseBasse = FreeCAD.ActiveDocument.addObject("Part::Box","LisseBasse")
+        lisseBasse.Length = fp.longueurMOB
+        lisseBasse.Height = baseMontant
+        lisseBasse.Width = hauteurMontant
+        lisseBasse.Placement = App.Placement(FreeCAD.Vector(0,0,0),App.Rotation(0,0,0,1))
+        lisseHaute = FreeCAD.ActiveDocument.addObject("Part::Box","LisseHaute")
+        lisseHaute.Length = fp.longueurMOB
+        lisseHaute.Width = hauteurMontant
+        lisseHaute.Height = baseMontant
+        lisseHaute.Placement = App.Placement(FreeCAD.Vector(0,0,fp.hauteurMOB),App.Rotation(0,0,0,1))
+        montantDepart = FreeCAD.ActiveDocument.addObject("Part::Box","MontantDepart")
+        montantDepart.Length = longueurMontant
+        montantDepart.Width = hauteurMontant
+        montantDepart.Height = baseMontant
+        montantDepart.Placement = App.Placement(FreeCAD.Vector(baseMontant,0,baseMontant),App.Rotation(0,-0.707107,0,0.707107))
+        montantArrive = FreeCAD.ActiveDocument.addObject("Part::Box","MontantArrive")
+        montantArrive.Length = longueurMontant
+        montantArrive.Width = hauteurMontant
+        montantArrive.Height = baseMontant
+        montantArrive.Placement = App.Placement(FreeCAD.Vector(fp.longueurMOB,0,baseMontant),App.Rotation(0,-0.707107,0,0.707107))
+        montantIntermediaire = FreeCAD.ActiveDocument.addObject("Part::Box","MontantIntermediaire")
+        montantIntermediaire.Length = longueurMontant
+        montantIntermediaire.Width = hauteurMontant
+        montantIntermediaire.Height = baseMontant
+        montantIntermediaire.Placement = App.Placement(App.Vector(1200 + baseMontant / 2,0,baseMontant),App.Rotation(0,-0.707107,0,0.707107))
+        montantsIntRepartition = Draft.makeArray(montantIntermediaire, FreeCAD.Vector(fp.entreaxeMontants,0,0), FreeCAD.Vector(0,1,0), nbMontantPanneauxSuivant, 1)
+        montant1ereRepartition = Draft.makeArray(montantDepart, FreeCAD.Vector(fp.entreaxeMontants,0,0), FreeCAD.Vector(0,1,0), nbMontant1erPanneau, 1)
+        
+        comp=Part.Compound([lisseBasse.Shape, lisseHaute.Shape, montant1ereRepartition.Shape, montantsIntRepartition.Shape, montantArrive.Shape])
+        
+        #ossaturebois = FreeCAD.ActiveDocument.addObject("Part::Compound","Compound")
+        #ossaturebois.Links = [FreeCAD.ActiveDocument.LisseBasse, FreeCAD.ActiveDocument.LisseHaute, FreeCAD.ActiveDocument.MontantDepart, FreeCAD.ActiveDocument.MontantArrive, montantsIntRepartition.Shape]
+        #fp.Links = [FreeCAD.ActiveDocument.LisseBasse, FreeCAD.ActiveDocument.LisseHaute, FreeCAD.ActiveDocument.MontantDepart, FreeCAD.ActiveDocument.MontantArrive]
+        """
+        fuseMOB = FreeCAD.ActiveDocument.addObject("Part::Fuse","MOB")
+        fuseMOB.Base = FreeCAD.ActiveDocument.LisseBasse
+        fuseMOB.Tool = FreeCAD.ActiveDocument.LisseHaute
+        fuseMOB.Tool = FreeCAD.ActiveDocument.MontantDepart
+        """
+        fp.Shape = comp
+        
+        lisseBasse.ViewObject.hide()
+        lisseHaute.ViewObject.hide()
+        montantDepart.ViewObject.hide()
+        montantArrive.ViewObject.hide()
+        montantIntermediaire.ViewObject.hide()
+        montantsIntRepartition.ViewObject.hide()
+        montant1ereRepartition.ViewObject.hide()
+        
+        
+        
+        #Part.hide(lisseBasse)
+        #Arch.makeWall(comp)
+		
+def makeMurOssaBois(longueurMOB, entreaxeMontants, epaisseurMOB, hauteurMOB, doc=None):
+    doc = doc or FreeCAD.ActiveDocument
+    #obj=doc.addObject("Part::FeaturePython","MurOssaBois")
+    obj=doc.addObject("Part::FeaturePython","MurOssaBois")
+    #MurOssaBois(obj)
+    obj.ViewObject.Proxy=0 # just set it to something different from None (this assignment is needed to run an internal notification)
+    #Arch.makeWall(obj)
+    #Arch.makeStructure(obj)
+    return MurOssaBois(obj)    
+            
+if __name__ == '__main__':
+    makeMurOssaBois(2600, 400, 120, 2700)

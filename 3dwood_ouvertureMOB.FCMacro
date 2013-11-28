@@ -1,0 +1,117 @@
+#***************************************************************************
+#*                                                                         *
+#*   Copyright (c) 2013                                                    *  
+#*   Jonathan Wiedemann <j.wiedemann@wood3dservices.fr>                    *  
+#*                                                                         *
+#*   This program is free software; you can redistribute it and/or modify  *
+#*   it under the terms of the GNU Lesser General Public License (LGPL)    *
+#*   as published by the Free Software Foundation; either version 2 of     *
+#*   the License, or (at your option) any later version.                   *
+#*   for detail see the LICENCE text file.                                 *
+#*                                                                         *
+#*   This program is distributed in the hope that it will be useful,       *
+#*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+#*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+#*   GNU Library General Public License for more details.                  *
+#*                                                                         *
+#*   You should have received a copy of the GNU Library General Public     *
+#*   License along with this program; if not, write to the Free Software   *
+#*   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  *
+#*   USA                                                                   *
+#*                                                                         *
+#***************************************************************************
+
+import FreeCAD, Part, Draft, math
+
+class CadreFenetreMOB:
+    '''retourne un cadre de fenetre pour mur ossature bois'''
+    def __init__(self,obj, largeurFenetre = 1250.00, hauteurFenetre = 1250.00, allegeFenetre = 1100.00, posXFenetre = 1000.00):
+        obj.addProperty("App::PropertyLength","largeurFenetre","FenetreMOB","Largeur de la fenetre.").largeurFenetre = largeurFenetre
+        obj.addProperty("App::PropertyLength","hauteurFenetre","FenetreMOB","Hauteur de la fenetre.").hauteurFenetre = hauteurFenetre
+        obj.addProperty("App::PropertyLength","allegeFenetre","FenetreMOB","Allege de la fenetre.").allegeFenetre = allegeFenetre
+        obj.addProperty("App::PropertyLength","posXFenetre","FenetreMOB","Position par rapport au debut du mur").posXFenetre = posXFenetre
+        obj.Proxy = self
+        
+    def onChanged(self, fp, prop):
+        "Do something when a property has changed"
+        pass
+
+    def execute(self, fp):
+        fp.Shape=CadreFenetreMOB.buildshape(fp.largeurFenetre, fp.hauteurFenetre, fp.allegeFenetre, fp.posXFenetre, largeurMontant, hauteurMOB )
+        
+    @staticmethod
+    def buildshape(largeurFenetre, hauteurFenetre, allegeFenetre, posXFenetre, largeurMontant, hauteurMOB):
+        epaisseurBloc = 50 + largeurMontant + 50
+        hauteurPiece = largeurMontant
+        basePiece = 45.00
+        jeuPeripherique = 10.00
+        #blocFenetre =  Part.makeBox(largeurFenetre, epaisseurBloc, hauteurFenetre,FreeCAD.Vector(posXFenetre, -50, allegeFenetre),FreeCAD.Vector(0,0,1))
+        blocFenetrePeriph = Part.makeBox(largeurFenetre+2*jeuPeripherique, epaisseurBloc, hauteurFenetre+2*jeuPeripherique,FreeCAD.Vector(posXFenetre-jeuPeripherique, -50, allegeFenetre-jeuPeripherique),FreeCAD.Vector(0,0,1))
+        
+        
+        # Piece d Allege
+        longueurAllege = largeurFenetre + 2 * jeuPeripherique
+        posXpieceAllege = posXFenetre - jeuPeripherique
+        posZpieceAllege = allegeFenetre - basePiece - jeuPeripherique
+        pieceAllege = Part.makeBox(longueurAllege, hauteurPiece, basePiece, FreeCAD.Vector(posXpieceAllege, 0, posZpieceAllege),FreeCAD.Vector(0,0,1))
+        
+        # Piece d appuis des linteaux
+        longueurAppuiLinteau = longueurAllege + 2 * basePiece
+        print type(longueurAppuiLinteau)
+        posXpieceAppuiLinteau = posXFenetre - basePiece -jeuPeripherique
+        print type(posXpieceAppuiLinteau)
+        posZpieceAppuiLinteau = allegeFenetre + hauteurFenetre + jeuPeripherique
+        print type(posZpieceAppuiLinteau)
+        pieceAppuiLinteau = Part.makeBox(longueurAppuiLinteau, hauteurPiece, basePiece, FreeCAD.Vector(posXpieceAppuiLinteau, 0, posZpieceAppuiLinteau ))
+        print type(FreeCAD.Vector(1200.0, 0.0, 2000.0))
+        #pieceAppuiLinteau = Part.makeBox(1200.0, 45.0, FreeCAD.Vector(1200.0, 0.0, 2000.0), FreeCAD.Vector(0,0,1))
+        
+        # Le ou les linteaux
+        pieceLinteau001 = Part.makeBox(longueurAppuiLinteau, basePiece, 220.00, FreeCAD.Vector(posXpieceAppuiLinteau, 0, posZpieceAppuiLinteau + basePiece), FreeCAD.Vector(0,0,1))
+        pieceLinteau002 = Part.makeBox(longueurAppuiLinteau, basePiece, 220.00, FreeCAD.Vector(posXpieceAppuiLinteau, basePiece, posZpieceAppuiLinteau + basePiece), FreeCAD.Vector(0,0,1))        
+        shapeLinteau = pieceLinteau001.fuse(pieceLinteau002)
+        
+        # Montants de piece d'allege
+        longueurMontantAllege = allegeFenetre - 2 * basePiece - jeuPeripherique
+        montantAllege001 = Part.makeBox(longueurMontantAllege, hauteurPiece, basePiece, FreeCAD.Vector(posXpieceAllege, hauteurPiece, basePiece), FreeCAD.Vector(1,0,0))        
+        montantAllege002 = Part.makeBox(longueurMontantAllege, hauteurPiece, basePiece, FreeCAD.Vector(posXpieceAllege+longueurAllege-basePiece, hauteurPiece, basePiece), FreeCAD.Vector(1,0,0))
+        shapeMontantAllege = montantAllege001.fuse(montantAllege002)
+        
+        # Montants piece appuis linteau
+        longueurMontantLinteau = posZpieceAppuiLinteau - basePiece
+        montantLinteau001 = Part.makeBox(longueurMontantLinteau, hauteurPiece, basePiece, FreeCAD.Vector(posXpieceAppuiLinteau, hauteurPiece, basePiece), FreeCAD.Vector(1,0,0))        
+        montantLinteau002 = Part.makeBox(longueurMontantLinteau, hauteurPiece, basePiece, FreeCAD.Vector(posXpieceAllege+longueurAllege, hauteurPiece, basePiece), FreeCAD.Vector(1,0,0))
+        shapeMontantLinteau = montantLinteau001.fuse(montantLinteau002)
+        
+        # Montant support cadre
+        longueurMontant = hauteurMOB - basePiece
+        montant001 = Part.makeBox(longueurMontant, hauteurPiece, basePiece, FreeCAD.Vector(posXpieceAppuiLinteau-basePiece, hauteurPiece, basePiece), FreeCAD.Vector(1,0,0))        
+        montant002 = Part.makeBox(longueurMontant, hauteurPiece, basePiece, FreeCAD.Vector(posXpieceAllege+longueurAllege+basePiece, hauteurPiece, basePiece), FreeCAD.Vector(1,0,0))
+        shapeMontant = montant001.fuse(montant002)
+        
+        #shape = blocFenetrePeriph.fuse(pieceAllege).fuse(pieceAppuiLinteau).fuse(shapeLinteau).fuse(shapeMontantAllege).fuse(shapeMontantLinteau).fuse(shapeMontant)
+        shape = pieceAllege.fuse(pieceAppuiLinteau).fuse(shapeLinteau).fuse(shapeMontantAllege).fuse(shapeMontantLinteau).fuse(shapeMontant)
+        #shapetocut = blocFenetrePeriph.fuse(pieceAllege).fuse(pieceAppuiLinteau).fuse(shapeLinteau).fuse(shapeMontantAllege).fuse(shapeMontantLinteau).fuse(shapeMontant)
+        #MurOssaBoisOuv = sel[0].Cut(shapetocut)
+        return shape
+
+
+def makeCadreFenetreMOB(largeurFenetre, hauteurFenetre, allegeFenetre, posXFenetre, largeurMontant, hauteurMOB, doc=None):
+    doc = doc or FreeCAD.ActiveDocument
+    obj=doc.addObject("Part::FeaturePython","CadreFenetreMOB")
+    CadreFenetreMOB(obj)
+    obj.ViewObject.Proxy=0 # just set it to something different from None (this assignment is needed to run an internal notification)
+    return obj    
+            
+if __name__ == '__main__':
+    sel = FreeCADGui.Selection.getSelection()
+    if len(sel) != 0: 
+        if sel[0].getGroupOfProperty ("hauteurMOB") == "MOB" :
+            largeurMontant = sel[0].getPropertyByName("epaisseurMOB")
+            hauteurMOB = sel[0].getPropertyByName("hauteurMOB")
+            makeCadreFenetreMOB(1250, 1250, 1100, 1000, largeurMontant, hauteurMOB)
+        else:
+            print "Ce n est pas un MOB"
+    else:
+        print "No selection"
+
